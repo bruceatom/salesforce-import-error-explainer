@@ -1,0 +1,7 @@
+{
+  "name": "salesforce-import-error-explainer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "In-browser explainer for Salesforce Data Loader and Bulk API error files.",
+  "scripts": { "test": "node --test test/*.test.js" }
+}

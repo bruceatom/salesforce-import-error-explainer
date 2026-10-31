@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Salesforce Import Error Explainer | Free, in-browser | Logic Conduit</title>
+  <meta name="description" content="Drop a Salesforce Data Loader or Bulk API error file and see failures grouped by cause, with the next step for each. Runs in your browser; nothing is uploaded.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site">
+    <div class="wrap">
+      <a class="brand" href="https://logicconduit.com/?utm_source=import-error-explainer&amp;utm_medium=tool">Logic Conduit</a>
+      <span class="tag">Free tool</span>
+    </div>
+  </header>
+
+  <main id="main" class="wrap">
+    <h1>Salesforce Import Error Explainer</h1>
+    <p class="intro">Drop the error file from Data Loader, dataloader.io or a Bulk API job. You get the failures grouped by cause, who usually fixes each one, and what to do next. <strong>Your file stays in this browser tab.</strong> Nothing is uploaded.</p>
+
+    <section class="input" aria-labelledby="input-heading">
+      <h2 id="input-heading" class="sr-only">Add your error file</h2>
+      <label id="drop" class="drop" for="file">
+        <span class="drop-title">Choose or drop an error CSV</span>
+        <span class="small">For example <code>error.csv</code> from Data Loader, or failed results from a Bulk API job</span>
+        <input id="file" type="file" accept=".csv,.txt,text/csv,text/plain">
+      </label>
+
+      <details class="paste">
+        <summary>Or paste error messages</summary>
+        <label for="paste" class="small">Paste the CSV, or one error message per line</label>
+        <textarea id="paste" rows="6" spellcheck="false" placeholder="REQUIRED_FIELD_MISSING:Required fields are missing: [LastName]:LastName --"></textarea>
+        <button id="explain-paste" type="button">Explain pasted text</button>
+      </details>
+
+      <p><button id="sample" type="button" class="secondary">Try a sample file</button></p>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section id="results" class="results" hidden aria-live="off"></section>
+
+    <section class="about" aria-labelledby="about-heading">
+      <h2 id="about-heading">How it works</h2>
+      <ul>
+        <li>It finds the error column (<code>ERROR</code>, <code>sf__Error</code> or similar) and reads the Salesforce status code at the start of each message.</li>
+        <li>It groups rows by code, then by field, picklist value or validation rule message, so one bad value shows up as one fix.</li>
+        <li>Explanations describe the most likely causes. Check them against your org before changing settings.</li>
+        <li>The Import Wizard emails results rather than giving a CSV; you can paste those messages instead.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="site">
+    <div class="wrap">
+      <p>Built by <a href="https://logicconduit.com/?utm_source=import-error-explainer&amp;utm_medium=tool">Logic Conduit</a>, Salesforce integration, automation and data migration consulting for US and Canadian businesses. See also <a href="https://logicconduit.com/salesforce-data-migration-services.html?utm_source=import-error-explainer&amp;utm_medium=tool&amp;utm_campaign=footer">Salesforce data migration services</a> and <a href="https://logicconduit.com/articles/?utm_source=import-error-explainer&amp;utm_medium=tool&amp;utm_campaign=footer">practical Salesforce articles</a>.</p>
+      <p class="small">Not affiliated with Salesforce. Salesforce and Data Loader are trademarks of Salesforce, Inc. This page does not upload, store or transmit your file.</p>
+    </div>
+  </footer>
+
+  <script src="explainer.js"></script>
+  <script src="sample-data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+sf__Id,sf__Error,Name,Legacy_Id__c,AnnualRevenue
+,DUPLICATE_VALUE:duplicate value found: Legacy_Id__c duplicates value on record with id: 0015g00000AbC0dEAAZ:--,Northwind Supply 0,NW-100,250000
+,DUPLICATE_VALUE:duplicate value found: Legacy_Id__c duplicates value on record with id: 0015g00000AbC1dEAAZ:--,Northwind Supply 1,NW-101,250000
+,DUPLICATE_VALUE:duplicate value found: Legacy_Id__c duplicates value on record with id: 0015g00000AbC2dEAAZ:--,Northwind Supply 2,NW-102,250000
+,DUPLICATE_VALUE:duplicate value found: Legacy_Id__c duplicates value on record with id: 0015g00000AbC3dEAAZ:--,Northwind Supply 3,NW-103,250000
+,DUPLICATE_VALUE:duplicate value found: Legacy_Id__c duplicates value on record with id: 0015g00000AbC4dEAAZ:--,Northwind Supply 4,NW-104,250000
+,DUPLICATE_VALUE:duplicate value found: Legacy_Id__c duplicates value on record with id: 0015g00000AbC5dEAAZ:--,Northwind Supply 5,NW-105,250000
+,DUPLICATE_VALUE:duplicate value found: Legacy_Id__c duplicates value on record with id: 0015g00000AbC6dEAAZ:--,Northwind Supply 6,NW-106,250000
+,DUPLICATE_VALUE:duplicate value found: Legacy_Id__c duplicates value on record with id: 0015g00000AbC7dEAAZ:--,Northwind Supply 7,NW-107,250000
+,"Error converting value to correct data type: For input string: ""1,250,000""",Contoso Parts 0,CP-200,"1,250,000"
+,"Error converting value to correct data type: For input string: ""1,250,000""",Contoso Parts 1,CP-201,"1,250,000"
+,"Error converting value to correct data type: For input string: ""1,250,000""",Contoso Parts 2,CP-202,"1,250,000"
+,"Error converting value to correct data type: For input string: ""1,250,000""",Contoso Parts 3,CP-203,"1,250,000"
+,STRING_TOO_LONG:Account Name: data value too large: Very long name (max length=255):Name --,XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX,LG-300,10
+,STRING_TOO_LONG:Account Name: data value too large: Very long name (max length=255):Name --,XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX,LG-301,10
+,STRING_TOO_LONG:Account Name: data value too large: Very long name (max length=255):Name --,XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX,LG-302,10
+,"CANNOT_INSERT_UPDATE_ACTIVATE_ENTITY:AccountTrigger: execution of BeforeInsert caused by: System.NullPointerException: Attempt to de-reference a null object: Trigger.AccountTrigger: line 12, column 1:--",Fabrikam 0,FB-400,5000
+,"CANNOT_INSERT_UPDATE_ACTIVATE_ENTITY:AccountTrigger: execution of BeforeInsert caused by: System.NullPointerException: Attempt to de-reference a null object: Trigger.AccountTrigger: line 12, column 1:--",Fabrikam 1,FB-401,5000
