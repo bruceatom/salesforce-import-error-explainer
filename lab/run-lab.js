@@ -6,8 +6,7 @@
  *
  * Usage (from the repo root):
  *   sf org login web --alias lab
- *   sf project deploy start --source-dir lab/force-app --target-org lab
- *   sf org assign permset --name Error_Lab_Access --target-org lab
+ *   (cd lab && sf project deploy start --target-org lab && sf org assign permset --name Error_Lab_Access --target-org lab)
  *   node lab/run-lab.js --org lab            # seed, load, collect, score
  *   node lab/run-lab.js --score-only         # re-score files already in lab/results/
  *

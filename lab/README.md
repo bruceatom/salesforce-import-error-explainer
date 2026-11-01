@@ -10,10 +10,12 @@ A throwaway Developer Edition org set up to fail on purpose, so the explainer ca
    ```bash
    sf org login web --alias lab
    ```
-2. From the repo root, deploy the lab configuration and give yourself access to its fields:
+2. Deploy the lab configuration (from the `lab` folder, which is its own SFDX project) and give yourself access to its fields:
    ```bash
-   sf project deploy start --source-dir lab/force-app --target-org lab
+   cd lab
+   sf project deploy start --target-org lab
    sf org assign permset --name Error_Lab_Access --target-org lab
+   cd ..
    ```
    This adds Account fields (restricted picklist `Tier__c`, unique external ID `Legacy_Id__c`, number(3,0) `Employee_Band__c`, text(5) `Short_Code__c`, a formula field), Contact fields (`Contact_Type__c`, `Preferred_Account__c` with a Gold-only lookup filter), a "Phone required for Customer" validation rule, and a `Lab_Event__c` object whose trigger throws on `Name = 'BOOM'`.
 3. Two steps in Setup (the metadata for these is fiddly, so they are manual):
