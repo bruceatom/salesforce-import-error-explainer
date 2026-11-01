@@ -5,6 +5,7 @@ A free, single-page tool that reads a Salesforce import error file and tells you
 Drop in the `error.csv` from Data Loader, the failed results of a Bulk API job, or paste error messages. The page:
 
 - finds the error column (`ERROR`, `sf__Error`, `Error` and similar), or reads one message per line;
+- recognises Data Loader's own errors too (CSV structure, mapping, memory, connection);
 - groups failures by Salesforce status code (for example `INVALID_OR_NULL_FOR_RESTRICTED_PICKLIST`, `FIELD_CUSTOM_VALIDATION_EXCEPTION`, `UNABLE_TO_LOCK_ROW`), then by field, picklist value or validation rule message;
 - shows who usually fixes each cause (the file, an admin setting, automation, or the way the load ran) and the next steps;
 - lets you download the failed rows for each cause, so you can fix and re-run only those;
@@ -24,7 +25,7 @@ Open `index.html` in a browser, or serve the folder with any static web server. 
 
 ## Accuracy
 
-The parser recognises error codes anywhere in a message (including text wrapped by integration tools, Apex exception text and JSON), plus common code-less wording. `examples/web-error-corpus.csv` holds 79 real messages collected from public pages, with sources; the test suite checks all of them. The parser was tuned on that set, so it is a regression check, not an accuracy estimate.
+The parser recognises error codes anywhere in a message (including text wrapped by integration tools, Apex exception text and JSON), plus common code-less wording. `examples/web-error-corpus.csv` holds 103 real messages with sources: 79 from vendor knowledge bases, community threads and blogs, and 24 quoted in Salesforce Help articles published in 2026. The test suite checks all of them. The 24 2026 messages were scored before the parser was changed (11 of 24 correct; 11 of 16 Salesforce record errors), then used to extend it, so the suite is now a regression check, not an accuracy estimate.
 
 ## Develop
 

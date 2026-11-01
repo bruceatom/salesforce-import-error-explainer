@@ -5,6 +5,7 @@
 .owner-setup { background: #fff3d6; color: #6b4a00; }
 .owner-automation { background: #fde7e7; color: #8a1f1f; }
 .owner-timing { background: #e6eefc; color: #1f3f7a; }
+.owner-loader { background: #efe8fb; color: #4b2c80; }
 .owner-unknown { background: #eceff0; color: #3b4446; }
 .help { background: #fffbea; }
 .example { white-space: pre-wrap; word-break: break-word; font-size: 0.75rem; }

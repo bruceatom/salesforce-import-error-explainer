@@ -1,4 +1,4 @@
-// Regression test: 79 real error messages collected from public web pages (sources in the CSV).
+// Regression test: 103 real error messages from public pages and 2026 Salesforce Help articles (sources in the CSV).
 // The parser was tuned while looking at these, so this guards against regressions; it is not an accuracy estimate.
 const test = require("node:test");
 const assert = require("node:assert/strict");

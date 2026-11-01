@@ -13,6 +13,7 @@ const SFErrorExplainer = (function () {
     setup: { label: "Admin setting or permission", hint: "Usually needs someone with Salesforce admin access to check a setting, rule or permission." },
     automation: { label: "Automation or code", hint: "Usually needs an admin or developer to look at a Flow, trigger or other automation." },
     timing: { label: "Timing or load pattern", hint: "Usually caused by how the load ran (order, batch size, parallel jobs) rather than by the values." },
+    loader: { label: "Loader settings or mapping", hint: "Fixed in the loading tool itself: field mapping, settings, or the computer running it." },
     unknown: { label: "Needs investigation", hint: "Not a recognised pattern. Read the full message and check it in your org." }
   };
 
@@ -190,7 +191,7 @@ const SFErrorExplainer = (function () {
     INACTIVE_OWNER_OR_USER: {
       title: "Owner or user is inactive",
       owner: "file",
-      cause: "The row assigns or references a user who is no longer active.",
+      cause: "The row assigns or references a user who is no longer active. Data Loader can also report this as \"Operation not valid for this user type\".",
       steps: [
         "Map these rows to an active owner or a queue agreed with the business owner."
       ]
@@ -309,6 +310,62 @@ const SFErrorExplainer = (function () {
         "Read which related records the message names.",
         "Decide with the business owner whether to remove or reassign those first, or keep the record."
       ]
+    },
+    GROUP_MEMBERSHIP_OPERATION_IN_PROGRESS: {
+      title: "Sharing recalculation was still running",
+      owner: "timing",
+      cause: "Salesforce was recalculating sharing after role or group changes, which blocks some record updates until it finishes.",
+      steps: [
+        "Wait for the recalculation to finish, then re-run only the failed rows.",
+        "Avoid loading records straight after changing roles, groups or sharing rules."
+      ]
+    },
+    LOADER_CSV_FORMAT: {
+      title: "The file's columns don't line up",
+      owner: "file",
+      cause: "A row has more values than the header has columns, so the loader rejected the file. Common causes: a value with no header above it, an unquoted comma, or a tab character inside a comma-delimited cell, which Data Loader 34.0 and later reads as an extra column.",
+      steps: [
+        "Open the file in a plain text editor and look at the row number in the message.",
+        "Remove tab characters and stray delimiters, and put quotes around values that contain commas.",
+        "Make sure every column that holds data has a header."
+      ]
+    },
+    LOADER_MAPPING: {
+      title: "Columns aren't mapped the way the loader needs",
+      owner: "loader",
+      cause: "The loader stopped before sending rows. With Data Loader's Bulk API option on, this happens when no fields are mapped (\"Failed to parse CSV header\"). An insert also needs required columns such as Name to be mapped.",
+      steps: [
+        "Go back to the mapping step and map at least the required fields.",
+        "Save the mapping as an .sdl file so repeat loads use the same mapping."
+      ]
+    },
+    LOADER_SETTING: {
+      title: "A Data Loader setting doesn't match the file",
+      owner: "loader",
+      cause: "Data Loader stopped with an internal error before loading. In the case Salesforce documents, the setting to perform updates with an external ID is on, but no external ID column is mapped in the file.",
+      steps: [
+        "Open Data Loader Settings and check the external ID and Bulk API options.",
+        "Map the external ID column, or turn the setting off, and run again."
+      ]
+    },
+    LOADER_MEMORY: {
+      title: "The computer running Data Loader ran out of memory",
+      owner: "loader",
+      cause: "Java ran out of memory on the machine running the load (\"Java heap space\"). Salesforce records are not the problem.",
+      steps: [
+        "Split the file into smaller parts and load them one at a time.",
+        "Close other programs, or give Data Loader more memory as described in Salesforce's \"Java Heap Space\" help article."
+      ]
+    },
+    LOADER_CONNECTION: {
+      title: "Data Loader couldn't reach Salesforce",
+      owner: "loader",
+      cause: "The login request never reached Salesforce, often because of a proxy or VPN, or the wrong server host (login.salesforce.com for production, test.salesforce.com for sandboxes).",
+      steps: [
+        "Check the server host in Data Loader Settings.",
+        "On a proxy or VPN, enter the proxy details in Data Loader Settings and check with your network administrator.",
+        "Look at the user's Login History to see whether the attempt arrived."
+      ]
     }
   };
 
@@ -316,7 +373,8 @@ const SFErrorExplainer = (function () {
     automation: " (raised by a trigger, Flow or package)",
     timing: " (a record lock is involved)",
     setup: " (an org setting or access issue)",
-    file: " (a field-mapping issue)"
+    file: " (a field-mapping issue)",
+    loader: " (a loader setting or mapping issue)"
   };
 
   var ERROR_HEADER = /^(error|errors|error message|error_message|sf__error|status message)$/i;
@@ -454,10 +512,18 @@ const SFErrorExplainer = (function () {
   var AUTOMATION_EVIDENCE = /Data changed by trigger|caused by:|System\.\w*Exception|flow tried to|process failed|Rollup Helper/i;
   // Wording-only messages (no code in the text), in priority order.
   var PHRASES = [
+    [/Failed to send request|Unable to connect to Salesforce/i, "LOADER_CONNECTION"],
+    [/OutOfMemoryError|Java heap space/i, "LOADER_MEMORY"],
+    [/Row is larger than header|Invalid CSV file format|number of data columns exceeds/i, "LOADER_CSV_FORMAT"],
+    [/Failed to parse CSV header|column must be mapped/i, "LOADER_MAPPING"],
+    [/com\.salesforce\.dataloader|Cannot invoke 'Object\.toString\(\)'/i, "LOADER_SETTING"],
+    [/Group membership operation already in progress/i, "GROUP_MEMBERSHIP_OPERATION_IN_PROGRESS"],
+    [/Operation not valid for this user type/i, "INACTIVE_OWNER_OR_USER"],
+    [/value not of required type/i, "INVALID_TYPE_ON_FIELD_IN_RECORD"],
     [/Failed to parse date|not a valid DATE|deserialize instance of date/i, "DATE_PARSE"],
     [/invalid number|For input string|Error converting value to correct data type/i, "NUMBER_PARSE"],
     [/bad value for restricted picklist/i, "INVALID_OR_NULL_FOR_RESTRICTED_PICKLIST"],
-    [/id value of incorrect type|Id in upsert is not valid/i, "MALFORMED_ID"],
+    [/id value of incorrect (?:record )?type|Id in upsert is not valid|\bbad id\b/i, "MALFORMED_ID"],
     [/isn.t valid for the user|invalid cross reference id/i, "INVALID_CROSS_REFERENCE_KEY"],
     [/use one of these records/i, "DUPLICATES_DETECTED"],
     [/duplicate value found|Duplicate external id specified/i, "DUPLICATE_VALUE"],
@@ -467,9 +533,9 @@ const SFErrorExplainer = (function () {
     [/invalid email address|Email address is invalid/i, "INVALID_EMAIL_ADDRESS"],
     [/unable to obtain exclusive access|TooManyLockFailure/i, "UNABLE_TO_LOCK_ROW"],
     [/process failed|failed to trigger a flow|flow tried to/i, "CANNOT_EXECUTE_FLOW_TRIGGER"],
-    [/execution of (?:Before|After)\w*|System\.LimitException|Apex CPU time limit|batch save in the presence of Apex triggers/i, "CANNOT_INSERT_UPDATE_ACTIVATE_ENTITY"],
+    [/execution of (?:Before|After)\w*|System\.LimitException|Apex CPU time limit|Too many (?:SOQL queries|query rows|DML)|batch save in the presence of Apex triggers/i, "CANNOT_INSERT_UPDATE_ACTIVATE_ENTITY"],
     [/insufficient access rights on cross-reference/i, "INSUFFICIENT_ACCESS_ON_CROSS_REFERENCE_ENTITY"],
-    [/insufficient access rights on object/i, "INSUFFICIENT_ACCESS_OR_READONLY"],
+    [/insufficient access rights (?:on|to) object/i, "INSUFFICIENT_ACCESS_OR_READONLY"],
     [/converted lead/i, "CANNOT_UPDATE_CONVERTED_LEAD"],
     [/entity is deleted/i, "ENTITY_IS_DELETED"],
     [/does not match filter criteria|Does Not Exist or Meet Criteria/i, "FIELD_FILTER_VALIDATION_EXCEPTION"],
