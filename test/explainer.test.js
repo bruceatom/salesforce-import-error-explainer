@@ -96,3 +96,11 @@ test("pasted line containing commas stays one message", () => {
   assert.equal(r.mode, "lines");
   assert.equal(r.groups[0].breakdown[0].field, "CreatedDate,LastModifiedDate");
 });
+
+test("Bulk API 1.0 / Import Wizard result file: only rows with an Error are counted", () => {
+  const csv = '"Id","Success","Created","Error"\n"0035g00000AAAAAAA1","true","true",""\n"","false","false","REQUIRED_FIELD_MISSING:Required fields are missing: [LastName]:LastName --"\n';
+  const r = E.analyze(csv);
+  assert.equal(r.errorColumn, "Error");
+  assert.equal(r.totalRows, 1);
+  assert.equal(r.groups[0].code, "REQUIRED_FIELD_MISSING");
+});

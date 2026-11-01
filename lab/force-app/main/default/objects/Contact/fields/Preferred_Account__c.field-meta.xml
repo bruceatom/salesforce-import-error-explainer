@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Preferred_Account__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <label>Preferred Account</label>
+    <lookupFilter>
+        <active>true</active>
+        <errorMessage>Only Gold accounts can be preferred.</errorMessage>
+        <filterItems>
+            <field>Account.Tier__c</field>
+            <operation>equals</operation>
+            <value>Gold</value>
+        </filterItems>
+        <isOptional>false</isOptional>
+    </lookupFilter>
+    <referenceTo>Account</referenceTo>
+    <relationshipLabel>Preferring Contacts</relationshipLabel>
+    <relationshipName>Preferring_Contacts</relationshipName>
+    <required>false</required>
+    <type>Lookup</type>
+</CustomField>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <label>Error Lab Access</label>
+    <description>Field and object access for the import error lab.</description>
+    <hasActivationRequired>false</hasActivationRequired>
+    <fieldPermissions><field>Account.Tier__c</field><editable>true</editable><readable>true</readable></fieldPermissions>
+    <fieldPermissions><field>Account.Legacy_Id__c</field><editable>true</editable><readable>true</readable></fieldPermissions>
+    <fieldPermissions><field>Account.Employee_Band__c</field><editable>true</editable><readable>true</readable></fieldPermissions>
+    <fieldPermissions><field>Account.Short_Code__c</field><editable>true</editable><readable>true</readable></fieldPermissions>
+    <fieldPermissions><field>Account.Lab_Formula__c</field><editable>false</editable><readable>true</readable></fieldPermissions>
+    <fieldPermissions><field>Contact.Contact_Type__c</field><editable>true</editable><readable>true</readable></fieldPermissions>
+    <fieldPermissions><field>Contact.Preferred_Account__c</field><editable>true</editable><readable>true</readable></fieldPermissions>
+    <objectPermissions>
+        <allowCreate>true</allowCreate><allowDelete>true</allowDelete><allowEdit>true</allowEdit><allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords><object>Lab_Event__c</object><viewAllRecords>false</viewAllRecords>
+    </objectPermissions>
+</PermissionSet>

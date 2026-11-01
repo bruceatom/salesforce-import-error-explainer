@@ -41,7 +41,7 @@ const SFErrorExplainer = (function () {
     FIELD_CUSTOM_VALIDATION_EXCEPTION: {
       title: "Blocked by one of your org's validation rules",
       owner: "setup",
-      cause: "A validation rule in your org rejected the record. The message text is the rule's own error message, so the grouping below shows which rules blocked the most rows.",
+      cause: "A validation rule in your org rejected the record, or a trigger rejected it with addError(). The message text is the rule's or trigger's own error message, so the grouping below shows which rules blocked the most rows.",
       steps: [
         "Find the rule: Setup > Object Manager > the object > Validation Rules, and match the error message.",
         "Decide with the business owner whether the data should be corrected to meet the rule, or whether the rule should allow these records.",
@@ -51,7 +51,7 @@ const SFErrorExplainer = (function () {
     DUPLICATES_DETECTED: {
       title: "Stopped by a duplicate rule",
       owner: "setup",
-      cause: "An active duplicate rule found an existing record that matches this row and is set to block it.",
+      cause: "An active duplicate rule found an existing record that matches this row and is set to block it. Rules can run on edit as well as create, so updates by record Id can be blocked too.",
       steps: [
         "Decide whether these rows should update the existing records instead of creating new ones.",
         "If so, use an update or upsert keyed on the existing record Id or an external ID.",
@@ -61,7 +61,7 @@ const SFErrorExplainer = (function () {
     DUPLICATE_VALUE: {
       title: "A unique field value is already used",
       owner: "file",
-      cause: "A field marked unique (often an external ID) already holds this value on another record, or the value appears more than once in your file.",
+      cause: "A field marked unique (often an external ID) already holds this value on another record, or the value appears more than once in your file. During an upsert, a repeated external ID in the file is reported as \"Duplicate external id specified\".",
       steps: [
         "Check the file for repeated values in the field named below.",
         "If the rows are meant to update existing records, use upsert on that external ID instead of insert."
@@ -70,7 +70,7 @@ const SFErrorExplainer = (function () {
     INVALID_EMAIL_ADDRESS: {
       title: "Email address format is not valid",
       owner: "file",
-      cause: "The email field contains something Salesforce does not accept as an address: spaces, two @ signs, a missing domain, or several addresses in one cell.",
+      cause: "The email field contains something Salesforce does not accept as an address: spaces, two @ signs, a missing domain, or several addresses in one cell. If the message also mentions SendEmail or an exception, an automation sending email failed instead, and the file may be fine.",
       steps: [
         "Clean the addresses in the field(s) named below.",
         "Move extra addresses to a separate field or note rather than one cell."
@@ -82,7 +82,8 @@ const SFErrorExplainer = (function () {
       cause: "The value exceeds the field's maximum length (shown in the message where available).",
       steps: [
         "Shorten the values, or map them to a long text field.",
-        "If the field really needs to hold longer values, ask your admin about increasing its length."
+        "If the field really needs to hold longer values, ask your admin about increasing its length.",
+        "Data Loader's \"Allow field truncation\" setting can cut values to fit instead; it is not available when a Bulk API option is selected."
       ]
     },
     DATE_PARSE: {
@@ -90,8 +91,8 @@ const SFErrorExplainer = (function () {
       owner: "file",
       cause: "The loader could not convert the value to a date. Common reasons: day-first dates (13/04/2026) when month-first is expected, text such as \"TBD\", or Excel changing the format when saving the CSV.",
       steps: [
-        "Prefer the unambiguous format YYYY-MM-DD (date) or YYYY-MM-DDThh:mm:ssZ (date/time).",
-        "If the whole file is day-first, Data Loader has a \"Use European date format\" setting; check it matches the file.",
+        "Use YYYY-MM-DD for dates. For date/times, Data Loader recommends yyyy-MM-ddTHH:mm:ss.SSS+HHmm, for example 2026-04-13T09:00:00.000-0500.",
+        "If the whole file is day-first (dd/MM/yyyy), turn on Data Loader's \"Use European date format\" setting so it matches the file.",
         "Open the CSV in a plain text editor to see what Excel actually saved."
       ]
     },
@@ -107,16 +108,16 @@ const SFErrorExplainer = (function () {
     INVALID_TYPE_ON_FIELD_IN_RECORD: {
       title: "Value is the wrong type for the field",
       owner: "file",
-      cause: "The value does not match the field type, for example text in a number field or \"Yes\" in a checkbox.",
+      cause: "The value does not match the field type, for example text in a number field or a checkbox value the loader does not recognise.",
       steps: [
-        "Use plain numbers for number fields and TRUE/FALSE for checkboxes.",
+        "Use plain numbers for number fields. For checkboxes, Data Loader accepts true/false, yes/no, y/n, on/off and 1/0.",
         "Check the values listed below against the field type in Object Manager."
       ]
     },
     MALFORMED_ID: {
       title: "A record ID is not valid for that field",
       owner: "file",
-      cause: "An ID column or lookup holds something that is not a Salesforce ID, or an ID for the wrong object (for example a Contact ID in an Account lookup). Excel can also damage 15-character IDs.",
+      cause: "An ID column or lookup holds something that is not a valid Salesforce ID, such as a name, a truncated ID or text copied from another system. Excel can also damage 15-character IDs.",
       steps: [
         "Use 18-character IDs exported from this org.",
         "Check the lookup column points at the right object.",
@@ -126,7 +127,7 @@ const SFErrorExplainer = (function () {
     INVALID_CROSS_REFERENCE_KEY: {
       title: "A related record cannot be found",
       owner: "file",
-      cause: "The ID looks valid but the related record does not exist in this org, has been deleted, or the running user cannot see it. IDs copied from a sandbox or an old org are a common source.",
+      cause: "The ID looks valid but the related record does not exist in this org, has been deleted, or the running user cannot see it. IDs copied from a sandbox or an old org are a common source, as is a Record Type ID that is not assigned to the running user.",
       steps: [
         "Re-export the related records from this org and rebuild the lookup values.",
         "Check the running user can see the related records."
@@ -135,7 +136,7 @@ const SFErrorExplainer = (function () {
     INVALID_ID_FIELD: {
       title: "The record Id for an update is not valid",
       owner: "file",
-      cause: "An update or delete row has an Id that does not identify an existing record of this object.",
+      cause: "The Id is correctly formatted but not valid here: it is for the wrong object, or the record it identifies no longer exists.",
       steps: [
         "Check the Id column holds current 18-character IDs for this object.",
         "Rows for new records should be inserted, not updated."
@@ -171,10 +172,10 @@ const SFErrorExplainer = (function () {
     INSUFFICIENT_ACCESS_OR_READONLY: {
       title: "Running user cannot edit the record",
       owner: "setup",
-      cause: "The user running the load lacks edit access to this record (sharing, profile or permission set), or the record is locked, for example by an approval process.",
+      cause: "The user running the load lacks edit access to this record through sharing, profile or permission set.",
       steps: [
         "Check the running user's object permissions and record access.",
-        "Check for locked records such as those in an approval."
+        "Compare with a user who can edit the same record to see which access differs."
       ]
     },
     INSUFFICIENT_ACCESS_ON_CROSS_REFERENCE_ENTITY: {
@@ -244,7 +245,8 @@ const SFErrorExplainer = (function () {
       steps: [
         "Copy the full message for the admin or developer who owns the automation.",
         "Reproduce with one row in a sandbox before re-running the batch.",
-        "Avoid repeated retries until the cause is understood."
+        "Avoid repeated retries until the cause is understood.",
+        "If the message mentions Apex CPU time or query limits, every automation on the object shares that limit; the trigger named is not always the main cause, and smaller batches often help."
       ]
     },
     CANNOT_EXECUTE_FLOW_TRIGGER: {
@@ -284,9 +286,9 @@ const SFErrorExplainer = (function () {
     DUPLICATE_EXTERNAL_ID: {
       title: "More than one record has this external ID",
       owner: "file",
-      cause: "An upsert matched several existing records on the external ID, or the file repeats the same external ID, so Salesforce cannot tell which record to update.",
+      cause: "An upsert matched several existing records in the org that share the same external ID, so Salesforce cannot tell which record to update.",
       steps: [
-        "Find the duplicate external ID values in the org with a report, and in the file.",
+        "Find the records in the org that share the external ID value, with a report or query.",
         "Merge or correct the duplicates, ideally making the field unique, then re-run the failed rows."
       ]
     },
@@ -458,8 +460,7 @@ const SFErrorExplainer = (function () {
     [/id value of incorrect type|Id in upsert is not valid/i, "MALFORMED_ID"],
     [/isn.t valid for the user|invalid cross reference id/i, "INVALID_CROSS_REFERENCE_KEY"],
     [/use one of these records/i, "DUPLICATES_DETECTED"],
-    [/Duplicate external id specified/i, "DUPLICATE_EXTERNAL_ID"],
-    [/duplicate value found/i, "DUPLICATE_VALUE"],
+    [/duplicate value found|Duplicate external id specified/i, "DUPLICATE_VALUE"],
     [/unable to create\/update fields|bad field names on insert\/update call/i, "INVALID_FIELD_FOR_INSERT_UPDATE"],
     [/No such column|Field name not found/i, "INVALID_FIELD"],
     [/data value too large/i, "STRING_TOO_LONG"],
@@ -475,6 +476,8 @@ const SFErrorExplainer = (function () {
     [/Required fields are missing/i, "REQUIRED_FIELD_MISSING"]
   ];
   var NOT_CODES = /^(ERROR|ERRORS|SOURCE|FAILED|WARNING|STATUS|MESSAGE|NULL|TRUE|FALSE)$/;
+
+  var MAX_MESSAGE = 2000;
 
   function normalise(message) {
     return String(message || "")
@@ -495,7 +498,8 @@ const SFErrorExplainer = (function () {
   // Classify one message into { code, inner, owner, field, detail, value, raw }.
   function classify(message) {
     var raw = String(message || "").trim();
-    var msg = normalise(raw);
+    // Cap the text the patterns see so a pathological cell cannot make matching slow.
+    var msg = normalise(raw.length > MAX_MESSAGE ? raw.slice(0, MAX_MESSAGE) : raw);
     var out = { code: "UNRECOGNIZED", inner: null, owner: null, field: null, detail: null, value: null, raw: raw };
     var codes = findCodes(msg);
     var at = -1;
