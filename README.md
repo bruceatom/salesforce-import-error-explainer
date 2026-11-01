@@ -18,6 +18,14 @@ Explanations describe the most likely causes based on the message text. Check th
 
 Open `index.html` in a browser, or serve the folder with any static web server. No build step, no dependencies.
 
+## Salesforce package
+
+`salesforce/` holds the same tool as a Lightning app (one tab, Lightning Web Components only, no Apex, nothing stored) for distribution on AppExchange. See [salesforce/README.md](salesforce/README.md).
+
+## Accuracy
+
+The parser recognises error codes anywhere in a message (including text wrapped by integration tools, Apex exception text and JSON), plus common code-less wording. `examples/web-error-corpus.csv` holds 79 real messages collected from public pages, with sources; the test suite checks all of them. The parser was tuned on that set, so it is a regression check, not an accuracy estimate.
+
 ## Develop
 
 ```bash
@@ -27,7 +35,9 @@ npm test   # Node 18+; uses the built-in test runner, no packages to install
 - `explainer.js` – parsing, classification and the error-code knowledge base (no DOM; tested in Node)
 - `app.js` – page behaviour
 - `examples/` – sample error files (generated, no real customer data)
-- `test/` – unit tests
+- `test/` – unit tests, including the web corpus regression test
+- `scripts/build-lwc.js` – regenerates the Salesforce package's parser from `explainer.js`
+- `salesforce/` – Salesforce package source (SFDX project)
 
 To add an error code, add an entry to `CODES` in `explainer.js` with a title, owner, cause and steps, and add a test case.
 

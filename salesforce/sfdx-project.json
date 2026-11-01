@@ -1,0 +1,16 @@
+{
+  "packageDirectories": [
+    {
+      "path": "force-app",
+      "default": true,
+      "package": "Import Error Explainer",
+      "versionName": "Version 0.1",
+      "versionNumber": "0.1.0.NEXT",
+      "versionDescription": "Explains Salesforce import error files in the browser. No Apex, no stored data, no callouts."
+    }
+  ],
+  "name": "salesforce-import-error-explainer",
+  "namespace": "",
+  "sfdcLoginUrl": "https://login.salesforce.com",
+  "sourceApiVersion": "62.0"
+}

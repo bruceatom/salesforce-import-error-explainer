@@ -285,7 +285,41 @@
       steps: [
         "Reduce the number of semicolon-separated values in the cell."
       ]
+    },
+    DUPLICATE_EXTERNAL_ID: {
+      title: "More than one record has this external ID",
+      owner: "file",
+      cause: "An upsert matched several existing records on the external ID, or the file repeats the same external ID, so Salesforce cannot tell which record to update.",
+      steps: [
+        "Find the duplicate external ID values in the org with a report, and in the file.",
+        "Merge or correct the duplicates, ideally making the field unique, then re-run the failed rows."
+      ]
+    },
+    FIELD_INTEGRITY_EXCEPTION: {
+      title: "Value breaks a field or relationship rule",
+      owner: "file",
+      cause: "The value is not allowed for this field or relationship, for example a dependent picklist value that does not fit its controlling value, or a lookup to the wrong kind of record.",
+      steps: [
+        "Read the field named in the message and check its type, dependencies and lookup target.",
+        "Correct the values, then re-run only the failed rows."
+      ]
+    },
+    DELETE_FAILED: {
+      title: "Record could not be deleted",
+      owner: "setup",
+      cause: "Salesforce blocked the delete because other records or features depend on it, for example portal users, related cases or opportunities.",
+      steps: [
+        "Read which related records the message names.",
+        "Decide with the business owner whether to remove or reassign those first, or keep the record."
+      ]
     }
+  };
+
+  var OWNER_SUFFIX = {
+    automation: " (raised by a trigger, Flow or package)",
+    timing: " (a record lock is involved)",
+    setup: " (an org setting or access issue)",
+    file: " (a field-mapping issue)"
   };
 
   var ERROR_HEADER = /^(error|errors|error message|error_message|sf__error|status message)$/i;
@@ -332,7 +366,10 @@
   }
 
   function looksLikeError(value) {
-    return CODE_AT_START.test(value || "") || /Error converting value|Failed to parse date/i.test(value || "");
+    var v = String(value || "");
+    if (CODE_AT_START.test(v) || /Error converting value|Failed to parse date/i.test(v)) return true;
+    // Defined later in this file; function declarations are hoisted.
+    return v.length > 12 && (findCodes(normalise(v)).length > 0 || PHRASES.some(function (x) { return x[0].test(v); }));
   }
 
   // Returns { header, records: [{ rowNumber, message, cells }], errorColumn, mode }
@@ -401,58 +438,113 @@
       if (Number(m[2]) > 12) return "month-first dates, rejected by a day-first setting";
       return "ambiguous day/month order";
     }
+    if (/[+-]\d{2}:\d{2}$/.test(v)) return "time-zone offset with a colon; Data Loader expects +0100 or GMT+01:00";
     if (/^\d{4}-\d{2}-\d{2}/.test(v)) return "ISO-like; check time zone or time portion";
     if (/^\d{5}(\.\d+)?$/.test(v)) return "Excel serial number, not a date";
     if (v === "") return "blank";
     return "not a recognisable date";
   }
 
-  // Classify one message into { code, field, detail, valueKey }.
-  function classify(message) {
-    var msg = String(message || "").trim();
-    var m = msg.match(CODE_AT_START);
-    var code = m ? m[1] : null;
-    var out = { code: code || "UNRECOGNIZED", field: null, detail: null, value: null, raw: msg };
+  // Codes Salesforce returns that this tool recognises anywhere in a message, longest first.
+  var EXTRA_CODES = ["DUPLICATE_EXTERNAL_ID", "FIELD_INTEGRITY_EXCEPTION", "LIMIT_EXCEEDED", "INVALID_OPERATION"];
+  function knownCodes() {
+    return Object.keys(CODES).filter(function (c) { return !/_PARSE$/.test(c); }).concat(EXTRA_CODES)
+      .sort(function (a, b) { return b.length - a.length; });
+  }
+  var CODE_ANYWHERE = new RegExp("(?:^|[^A-Z0-9_])(" + knownCodes().join("|") + ")(?![A-Z0-9_])", "g");
+  var JSON_CODE = /["']?(?:errorCode|statusCode)["']?\s*[:=]\s*["']([A-Z][A-Z0-9_]{3,})["']/;
+  var FLOW_WRAPPER = /We can.t save this record because|flow tried to (?:update|create|delete) records|failed to trigger a flow/i;
+  var AUTOMATION_EVIDENCE = /Data changed by trigger|caused by:|System\.\w*Exception|flow tried to|process failed|Rollup Helper/i;
+  // Wording-only messages (no code in the text), in priority order.
+  var PHRASES = [
+    [/Failed to parse date|not a valid DATE|deserialize instance of date/i, "DATE_PARSE"],
+    [/invalid number|For input string|Error converting value to correct data type/i, "NUMBER_PARSE"],
+    [/bad value for restricted picklist/i, "INVALID_OR_NULL_FOR_RESTRICTED_PICKLIST"],
+    [/id value of incorrect type|Id in upsert is not valid/i, "MALFORMED_ID"],
+    [/isn.t valid for the user|invalid cross reference id/i, "INVALID_CROSS_REFERENCE_KEY"],
+    [/use one of these records/i, "DUPLICATES_DETECTED"],
+    [/Duplicate external id specified/i, "DUPLICATE_EXTERNAL_ID"],
+    [/duplicate value found/i, "DUPLICATE_VALUE"],
+    [/unable to create\/update fields|bad field names on insert\/update call/i, "INVALID_FIELD_FOR_INSERT_UPDATE"],
+    [/No such column|Field name not found/i, "INVALID_FIELD"],
+    [/data value too large/i, "STRING_TOO_LONG"],
+    [/invalid email address|Email address is invalid/i, "INVALID_EMAIL_ADDRESS"],
+    [/unable to obtain exclusive access|TooManyLockFailure/i, "UNABLE_TO_LOCK_ROW"],
+    [/process failed|failed to trigger a flow|flow tried to/i, "CANNOT_EXECUTE_FLOW_TRIGGER"],
+    [/execution of (?:Before|After)\w*|System\.LimitException|Apex CPU time limit|batch save in the presence of Apex triggers/i, "CANNOT_INSERT_UPDATE_ACTIVATE_ENTITY"],
+    [/insufficient access rights on cross-reference/i, "INSUFFICIENT_ACCESS_ON_CROSS_REFERENCE_ENTITY"],
+    [/insufficient access rights on object/i, "INSUFFICIENT_ACCESS_OR_READONLY"],
+    [/converted lead/i, "CANNOT_UPDATE_CONVERTED_LEAD"],
+    [/entity is deleted/i, "ENTITY_IS_DELETED"],
+    [/does not match filter criteria|Does Not Exist or Meet Criteria/i, "FIELD_FILTER_VALIDATION_EXCEPTION"],
+    [/Required fields are missing/i, "REQUIRED_FIELD_MISSING"]
+  ];
+  var NOT_CODES = /^(ERROR|ERRORS|SOURCE|FAILED|WARNING|STATUS|MESSAGE|NULL|TRUE|FALSE)$/;
 
-    if (!code) {
-      var dateMatch = msg.match(/Failed to parse date:?\s*(.*)$/i);
-      if (dateMatch) {
-        out.code = "DATE_PARSE";
-        out.value = dateMatch[1].trim();
-        out.detail = diagnoseDate(out.value);
-        return out;
-      }
-      if (/Error converting value to correct data type/i.test(msg)) {
-        out.code = "NUMBER_PARSE";
-        var num = msg.match(/For input string:?\s*"?([^"]*)"?/i);
-        out.value = num ? num[1] : null;
-        out.detail = out.value && /[,$€£%\s]/.test(out.value) ? "contains separators or symbols" : "not a plain number";
-        return out;
-      }
-      out.detail = maskSensitive(msg).slice(0, 160);
-      return out;
+  function normalise(message) {
+    return String(message || "")
+      .replace(/\\n/g, " ")              // literal "\n" copied from integration logs
+      .replace(/^[\s{\[(]+|[\s}\])]+$/g, "")
+      .trim();
+  }
+
+  function findCodes(msg) {
+    var found = [], m;
+    CODE_ANYWHERE.lastIndex = 0;
+    while ((m = CODE_ANYWHERE.exec(msg))) {
+      found.push({ code: m[1], index: m.index + m[0].indexOf(m[1]) });
+    }
+    return found;
+  }
+
+  // Classify one message into { code, inner, owner, field, detail, value, raw }.
+  function classify(message) {
+    var raw = String(message || "").trim();
+    var msg = normalise(raw);
+    var out = { code: "UNRECOGNIZED", inner: null, owner: null, field: null, detail: null, value: null, raw: raw };
+    var codes = findCodes(msg);
+    var at = -1;
+
+    if (FLOW_WRAPPER.test(msg) && !(codes.length && codes[0].code !== "CANNOT_EXECUTE_FLOW_TRIGGER" && codes[0].index < msg.search(FLOW_WRAPPER))) {
+      out.code = "CANNOT_EXECUTE_FLOW_TRIGGER";
+      var innerFlow = codes.filter(function (c) { return c.code !== out.code; })[0];
+      out.inner = innerFlow ? innerFlow.code : null;
+    } else if (codes.length) {
+      out.code = codes[0].code;
+      at = codes[0].index + codes[0].code.length;
+      var innerC = codes.filter(function (c) { return c.code !== out.code; })[0];
+      out.inner = innerC ? innerC.code : null;
+    } else {
+      var p = PHRASES.filter(function (x) { return x[0].test(msg); })[0];
+      var jc = msg.match(JSON_CODE);
+      var lead = msg.match(/^\s*([A-Z][A-Z0-9]*_[A-Z0-9_]*[A-Z0-9])\s*:/);
+      if (p) out.code = p[1];
+      else if (jc) out.code = jc[1];
+      else if (lead && !NOT_CODES.test(lead[1])) { out.code = lead[1]; at = msg.indexOf(lead[1]) + lead[1].length; }
     }
 
-    var rest = msg.slice(m[0].length);
-    // Trailing ":Field1,Field2 --" segment that Salesforce appends.
-    var tail = rest.match(/:\s*([A-Za-z0-9_,\s]*)\s*--\s*$/);
-    var tailFields = tail && tail[1].trim() ? tail[1].trim() : null;
+    // Text after the code, minus the separator Salesforce or the tool used.
+    var rest = at >= 0 ? msg.slice(at).replace(/^['"]?\s*[:,]\s*/, "") : msg;
+    var tail = rest.match(/:\s*([A-Za-z0-9_,\s]*)\s*--\s*$/) || rest.match(/:\s*\[([A-Za-z0-9_,\s]*)\]\s*$/);
+    var tailFields = tail && tail[1].trim() ? tail[1].replace(/\s+/g, "") : null;
     var body = tail ? rest.slice(0, tail.index) : rest.replace(/\s*--\s*$/, "");
 
-    switch (code) {
+    switch (out.code) {
       case "REQUIRED_FIELD_MISSING": {
         var req = body.match(/\[(.*?)\]/);
         out.field = req ? req[1].replace(/\s+/g, "") : tailFields;
         break;
       }
       case "INVALID_OR_NULL_FOR_RESTRICTED_PICKLIST": {
-        var pk = body.match(/bad value for restricted picklist field:\s?(.*)$/i);
+        var pk = body.match(/bad value for restricted picklist field:\s?([^:'"\]}]*)/i);
         out.value = pk ? pk[1] : null;
-        out.field = tailFields || (body.split(":")[0] || "").trim() || null;
+        var fq = msg.match(/'fields':\s*\['([^']+)'/);
+        out.field = tailFields || (fq ? fq[1] : null) || (/^[^:]+:\s*bad value/i.test(body) ? body.split(":")[0].trim() : null);
+        if (/Data changed by trigger/i.test(msg)) out.detail = "value set by a trigger, not the file";
         break;
       }
       case "FIELD_CUSTOM_VALIDATION_EXCEPTION": {
-        out.detail = maskSensitive(body.trim()) || "(rule message not shown)";
+        out.detail = maskSensitive(body.replace(/:\s*$/, "").trim()).slice(0, 160) || "(rule message not shown)";
         out.field = tailFields;
         break;
       }
@@ -462,35 +554,74 @@
         break;
       }
       case "STRING_TOO_LONG": {
-        var max = body.match(/max length=(\d+)/i);
-        out.field = tailFields || (body.split(":")[0] || "").trim();
+        var max = msg.match(/max length=(\d+)/i);
+        var lbl = body.match(/^\s*([^:]+):\s*data value too large/i) || msg.match(/([A-Za-z_][\w ]*):\s*data value too large/i);
+        out.field = tailFields || (lbl ? lbl[1].trim() : null);
         out.detail = max ? "max length " + max[1] : null;
         break;
       }
       case "INVALID_FIELD_FOR_INSERT_UPDATE": {
-        var f = body.match(/Unable to create\/update fields:\s*([^.]*)/i);
-        out.field = f ? f[1].replace(/\s+/g, "") : tailFields;
+        var f = msg.match(/Unable to create\/update fields:\s*([^.]*)/i);
+        var bf = msg.match(/bad field names on insert\/update call:\s*([^"\]}]*)/i);
+        out.field = f ? f[1].replace(/\s+/g, "") : (bf ? bf[1].replace(/,\s*Fields:.*$/i, "").trim() : tailFields);
+        if (bf) out.detail = /Account:|__pc|FirstName|LastName/.test(msg)
+          ? "field not valid for this record type (Person Accounts use FirstName/LastName, not Name)"
+          : "field not available on this object for this record";
         break;
       }
       case "INVALID_FIELD": {
-        var nf = body.match(/No such column '([^']+)'/i);
+        var nf = msg.match(/No such column '([^']+)'/i);
         out.field = nf ? nf[1] : tailFields;
+        if (/InvalidBatch|Field name not found/i.test(msg)) out.detail = "whole batch or job rejected";
         break;
       }
       case "CANNOT_INSERT_UPDATE_ACTIVATE_ENTITY": {
-        var trig = body.match(/^\s*([A-Za-z0-9_.]+):\s*execution of/);
-        out.detail = trig ? "trigger/class " + trig[1] : maskSensitive(body.trim()).slice(0, 120);
+        var trig = msg.match(/([A-Za-z0-9_.]+):\s*(?:execution of|System\.)/);
+        var lim = msg.match(/Apex CPU time limit|Too many (?:query rows|SOQL queries)[^.]*|NullPointerException|QueryException|DmlException/i);
+        out.detail = [trig ? "trigger/class " + trig[1] : null, lim ? lim[0] : null].filter(Boolean).join(" · ") || maskSensitive(body.trim()).slice(0, 120);
         break;
       }
       case "CANNOT_EXECUTE_FLOW_TRIGGER": {
-        var fl = body.match(/[“"]([^”"]+)[”"]\s*(process|flow)/i);
-        out.detail = fl ? fl[2].toLowerCase() + " \"" + fl[1] + "\"" : maskSensitive(body.trim()).slice(0, 120);
+        var fl = msg.match(/[“"]([^”"]+)[”"]\s*(process|flow)/i);
+        out.detail = fl ? fl[2].toLowerCase() + " \"" + fl[1] + "\"" : "Flow or process (name not in message)";
         break;
       }
+      case "DATE_PARSE": {
+        var dm = msg.match(/Failed to parse date:?\s*(.*)$/i);
+        out.value = dm ? dm[1].trim() : null;
+        out.detail = out.value ? diagnoseDate(out.value) : "date format not accepted";
+        break;
+      }
+      case "NUMBER_PARSE": {
+        var num = msg.match(/For input string:?\s*"?([^"]*)"?/i) || msg.match(/invalid number:\s*(.*)$/i);
+        out.value = num ? num[1].trim() : null;
+        out.detail = out.value && /[,$€£%\s]/.test(out.value) ? "contains separators or symbols" : "not a plain number";
+        break;
+      }
+      case "UNABLE_TO_LOCK_ROW": {
+        if (/TooManyLockFailure/i.test(msg)) out.detail = "whole batch retried and gave up";
+        break;
+      }
+      case "UNRECOGNIZED":
+        out.detail = maskSensitive(msg).slice(0, 160);
+        break;
       default:
         out.field = tailFields;
     }
+    if (out.inner) out.detail = [out.detail, "inner cause " + out.inner].filter(Boolean).join(" · ");
+    out.owner = ownerFor(out, msg);
     return out;
+  }
+
+  // Who usually fixes it, adjusted by evidence in the message itself.
+  function ownerFor(c, msg) {
+    if (c.code === "UNABLE_TO_LOCK_ROW" || (c.inner === "UNABLE_TO_LOCK_ROW" && c.code !== "CANNOT_EXECUTE_FLOW_TRIGGER")) return "timing";
+    if (c.code === "CANNOT_EXECUTE_FLOW_TRIGGER" || c.code === "CANNOT_INSERT_UPDATE_ACTIVATE_ENTITY") return "automation";
+    if (AUTOMATION_EVIDENCE.test(msg) && !/^System\.DmlException: \w+ failed\. First exception on row \d+[^;]*; first error: FIELD_FILTER/.test(msg)) return "automation";
+    if (c.code === "INVALID_CROSS_REFERENCE_KEY" && /RecordTypeId|isn.t valid for the user/i.test(msg)) return "setup";
+    if (c.code === "INVALID_FIELD_FOR_INSERT_UPDATE" && /bad field names/i.test(msg)) return "file";
+    var kb = CODES[c.code];
+    return kb ? kb.owner : "unknown";
   }
 
   function csvEscape(v) {
@@ -504,14 +635,17 @@
     var groups = {};
     extracted.records.forEach(function (rec) {
       var c = classify(rec.message);
-      var g = groups[c.code];
+      var gkey = c.code + "|" + c.owner;
+      var g = groups[gkey];
       if (!g) {
         var kb = CODES[c.code];
-        g = groups[c.code] = {
+        var baseTitle = kb ? kb.title : (c.code === "UNRECOGNIZED" ? "Message without a recognised error code" : "Error code not in this tool's list yet");
+        var shifted = kb && c.owner !== kb.owner ? OWNER_SUFFIX[c.owner] : "";
+        g = groups[gkey] = {
           code: c.code,
           known: !!kb,
-          title: kb ? kb.title : (c.code === "UNRECOGNIZED" ? "Message without a recognised error code" : "Error code not in this tool's list yet"),
-          owner: kb ? kb.owner : "unknown",
+          title: baseTitle + (shifted || ""),
+          owner: c.owner,
           cause: kb ? kb.cause : "This tool does not have an explanation for this code yet. Search the code in Salesforce's API status code documentation and read the full message.",
           steps: kb ? kb.steps.slice() : ["Read the full message for a few rows.", "Check the field and value it mentions in your org."],
           count: 0,

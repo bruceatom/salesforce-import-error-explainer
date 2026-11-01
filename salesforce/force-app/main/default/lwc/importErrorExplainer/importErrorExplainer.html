@@ -1,0 +1,146 @@
+<template>
+    <lightning-card title="Import Error Explainer" icon-name="utility:error">
+        <div class="slds-p-horizontal_medium">
+            <p class="intro">
+                Add the error file from Data Loader, dataloader.io or a Bulk API job, or paste error messages. You get the
+                failures grouped by cause, who usually fixes each one, and what to do next.
+                <strong> The file is read in your browser. It is not saved to Salesforce or sent anywhere.</strong>
+            </p>
+
+            <lightning-input
+                type="file"
+                label="Error file (CSV or text)"
+                accept=".csv,.txt,text/csv,text/plain"
+                onchange={handleFileChange}
+            ></lightning-input>
+
+            <lightning-textarea
+                class="slds-m-top_small"
+                label="Or paste error messages (one per line, or the whole CSV)"
+                value={pasteText}
+                onchange={handlePasteChange}
+            ></lightning-textarea>
+
+            <div class="slds-m-top_small slds-button-group-row">
+                <lightning-button label="Explain pasted text" variant="brand" onclick={handleExplainPaste}></lightning-button>
+                <lightning-button label="Try a sample" onclick={handleSample} class="slds-m-left_x-small"></lightning-button>
+            </div>
+
+            <p class={statusClass} role="status" aria-live="polite">{status}</p>
+
+            <template lwc:if={hasReport}>
+                <h2 class="slds-text-heading_medium slds-m-top_medium">{heading}</h2>
+                <p class="slds-text-color_weak">{lead}</p>
+
+                <table class="slds-table slds-table_bordered slds-table_cell-buffer slds-m-top_small" aria-label="Failures grouped by cause">
+                    <thead>
+                        <tr class="slds-line-height_reset">
+                            <th scope="col">Cause</th>
+                            <th scope="col">Rows</th>
+                            <th scope="col">Usually fixed by</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template for:each={groups} for:item="g">
+                            <tr key={g.key}>
+                                <td class="slds-cell-wrap">{g.title}</td>
+                                <td>{g.count}</td>
+                                <td><span class={g.badgeClass} title={g.ownerHint}>{g.ownerLabel}</span></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+
+                <div class="slds-m-top_small">
+                    <lightning-button label="Create shareable summary" onclick={handleCopySummary}></lightning-button>
+                    <lightning-input
+                        class="slds-m-top_x-small"
+                        type="checkbox"
+                        label="Include example values (emails and IDs stay masked)"
+                        checked={includeValues}
+                        onchange={handleIncludeValues}
+                    ></lightning-input>
+                    <template lwc:if={hasSummary}>
+                        <lightning-textarea
+                            class="slds-m-top_x-small"
+                            label="Summary (copied to your clipboard where allowed)"
+                            value={summaryText}
+                            readonly
+                        ></lightning-textarea>
+                    </template>
+                    <p class="slds-text-body_small slds-text-color_weak">
+                        The summary lists error codes, counts, field names and your validation rule messages. It leaves out
+                        names, emails and record values unless you tick the box.
+                    </p>
+                </div>
+
+                <template lwc:if={showHelp}>
+                    <div class="help slds-box slds-m-top_medium">
+                        <h3 class="slds-text-heading_small">This may be more than a file fix</h3>
+                        <ul class="slds-list_dotted">
+                            <template for:each={helpReasons} for:item="r">
+                                <li key={r.key}>{r.text}</li>
+                            </template>
+                        </ul>
+                        <p>
+                            If you are mid-migration or this keeps happening on repeat loads,
+                            <a href={helpUrl} target="_blank" rel="noopener noreferrer"> talk to Logic Conduit about a scoped review</a>.
+                            Send the summary, not the data.
+                        </p>
+                    </div>
+                </template>
+
+                <template for:each={groups} for:item="g">
+                    <article key={g.key} class="slds-box slds-m-top_medium">
+                        <div class="slds-grid slds-grid_align-spread">
+                            <h3 class="slds-text-heading_small">{g.title}</h3>
+                            <span class="slds-text-title_bold">{g.countLabel}</span>
+                        </div>
+                        <p class="slds-m-top_xx-small"><code>{g.code}</code> <span class={g.badgeClass}>{g.ownerLabel}</span></p>
+                        <p class="slds-m-top_x-small">{g.cause}</p>
+                        <h4 class="slds-text-title_caps slds-m-top_small">What to do</h4>
+                        <ol class="slds-list_ordered">
+                            <template for:each={g.steps} for:item="s">
+                                <li key={s.key}>{s.text}</li>
+                            </template>
+                        </ol>
+                        <h4 class="slds-text-title_caps slds-m-top_small">Breakdown</h4>
+                        <table class="slds-table slds-table_bordered slds-table_cell-buffer">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Rows</th>
+                                    <th scope="col">Field, value or message</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template for:each={g.breakdown} for:item="b">
+                                    <tr key={b.key}>
+                                        <td>{b.count}</td>
+                                        <td class="slds-cell-wrap">{b.text}</td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                        <p class="slds-text-body_small slds-text-color_weak">{g.moreVariants}</p>
+                        <details class="slds-m-top_x-small">
+                            <summary>Example message</summary>
+                            <pre class="example">{g.example}</pre>
+                        </details>
+                        <lightning-button
+                            class="slds-m-top_small"
+                            label={g.downloadLabel}
+                            data-index={g.index}
+                            onclick={handleDownload}
+                        ></lightning-button>
+                    </article>
+                </template>
+            </template>
+
+            <p class="slds-text-body_small slds-text-color_weak slds-m-vertical_medium">
+                Explanations describe the most likely causes; check them against your org before changing settings.
+                Built by <a href={aboutUrl} target="_blank" rel="noopener noreferrer">Logic Conduit</a>. Not affiliated with
+                Salesforce.
+            </p>
+        </div>
+    </lightning-card>
+</template>
